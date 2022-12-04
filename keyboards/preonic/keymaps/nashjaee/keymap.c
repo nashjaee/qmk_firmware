@@ -21,7 +21,8 @@ enum preonic_layers {
   _QWERTY,
   _LOWER,
   _RAISE,
-  _ADJUST
+  _ADJUST,
+  _MOVEMENT
 };
 
 enum preonic_keycodes {
@@ -30,6 +31,38 @@ enum preonic_keycodes {
   RAISE,
   BACKLIT
 };
+
+// tap dance states
+typedef enum {
+TD_NONE,
+TD_SINGLE_TAP,
+TD_DOUBLE_TAP,
+TD_SINGLE_HOLD,
+TD_UNKNOWN
+} td_state_t;
+
+typedef struct {
+  bool is_press_action;
+  td_state_t state;
+} td_tap_t;
+
+// tap dance declarations
+enum {
+  TD_ESC_CAPS
+};
+
+// Function associated with all tap dances
+td_state_t cur_dance(qk_tap_dance_state_t *state);
+
+// Functions associated with individual tap dances
+void ql_finished(qk_tap_dance_state_t *state, void *user_data);
+void ql_reset(qk_tap_dance_state_t *state, void *user_data);
+
+// Tap Dance definitions
+// qk_tap_dance_action_t tap_dance_actions[] = {
+//     // Tap once for Escape, twice for Caps Lock
+//     [TD_ESC_CAPS] = ACTION_TAP_DANCE_DOUBLE(KC_ESC, KC_CAPS),
+// };
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
@@ -49,7 +82,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 [_QWERTY] = LAYOUT_preonic_grid(
   KC_GRV,  KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    KC_BSPC,
   KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_DEL,
-  KC_ESC,  KC_A,    MT(MOD_LALT, KC_S),    MT(MOD_LCTL, KC_D), MT(MOD_LSFT, KC_F),    KC_G,    KC_H,    MT(MOD_RSFT, KC_J),    MT(MOD_RCTL, KC_K),    MT(MOD_RALT, KC_L),    KC_SCLN, KC_QUOT,
+  TD(TD_ESC_CAPS),  KC_A,    MT(MOD_LALT, KC_S),    MT(MOD_LCTL, KC_D), MT(MOD_LSFT, KC_F),    KC_G,    KC_H,    MT(MOD_RSFT, KC_J),    MT(MOD_RCTL, KC_K),    MT(MOD_RALT, KC_L),    KC_SCLN, KC_QUOT,
   KC_LSFT, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_ENT,
   BACKLIT, KC_LCTL, KC_LALT, KC_LGUI, LOWER,   KC_SPC,  KC_SPC,  RAISE,   KC_LEFT, KC_DOWN, KC_UP,   KC_RGHT
 ),
@@ -112,11 +145,31 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 [_ADJUST] = LAYOUT_preonic_grid(
   KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
   _______, QK_BOOT, DB_TOGG, _______, _______, _______, _______, _______, _______, _______, _______, KC_DEL,
-  _______, _______, MU_NEXT, AU_ON,   AU_OFF,  AG_NORM, AG_SWAP, QWERTY,  _______, _______,  _______, _______,
+  _______, _______, MU_NEXT, AU_ON,   AU_OFF,  AG_NORM, AG_SWAP, QWERTY,  _______, _______, _______, _______,
   _______, AU_PREV, AU_NEXT, MU_ON,   MU_OFF,  MI_ON,   MI_OFF,  _______, _______, _______, _______, _______,
   _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______
-)
+),
 
+/* Movement
+ * ,-----------------------------------------------------------------------------------.
+ * |  F1  |  F2  |  F3  |  F4  |  F5  |  F6  |  F7  |  F8  |  F9  |  F10 |  F11 |  F12 |
+ * |------+------+------+------+------+------+------+------+------+------+------+------|
+ * |      |      |      |      |      |      |      |      |      |      |      |  Del |
+ * |------+------+------+------+------+-------------+------+------+------+------+------|
+ * |      |      |      |      |      |      | Left | Down | Up   |Right |      |      |
+ * |------+------+------+------+------+------|------+------+------+------+------+------|
+ * |      |      |      |      |      |      |CG LT |CG RT |      |      |      |      |
+ * |------+------+------+------+------+------+------+------+------+------+------+------|
+ * |      |      |      |      |      |             |      |      |      |      |      |
+ * `-----------------------------------------------------------------------------------'
+ */
+[_MOVEMENT] = LAYOUT_preonic_grid(
+  KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
+  _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, KC_DEL,
+  _______, _______, _______, _______, _______, _______, KC_LEFT, KC_DOWN, KC_UP,  KC_RIGHT, _______, _______,
+  _______, _______, _______, _______, _______, _______, _______, C(G(KC_LEFT)), C(G(KC_RIGHT)), _______, _______, _______,
+  _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______
+)
 
 };
 
@@ -249,3 +302,60 @@ bool music_mask_user(uint16_t keycode) {
       return true;
   }
 }
+
+// Determine the current tap dance state
+td_state_t cur_dance(qk_tap_dance_state_t *state) {
+    if (state->count == 1) {
+        if (!state->pressed) return TD_SINGLE_TAP;
+        else return TD_SINGLE_HOLD;
+    } else if (state->count == 2) return TD_DOUBLE_TAP;
+    else return TD_UNKNOWN;
+}
+
+// Initialize tap structure associated with example tap dance key
+static td_tap_t ql_tap_state = {
+    .is_press_action = true,
+    .state = TD_NONE
+};
+
+// Functions that control what our tap dance key does
+void ql_finished(qk_tap_dance_state_t *state, void *user_data) {
+    ql_tap_state.state = cur_dance(state);
+    switch (ql_tap_state.state) {
+        case TD_SINGLE_TAP:
+            tap_code(KC_ESC);
+            break;
+        case TD_SINGLE_HOLD:
+            layer_on(_MOVEMENT);
+            break;
+        case TD_DOUBLE_TAP:
+            tap_code(KC_CAPS);
+            break;
+        default:
+            break;
+    }
+}
+
+void ql_reset(qk_tap_dance_state_t *state, void *user_data) {
+    // If the key was held down and now is released then switch off the layer
+    if (ql_tap_state.state == TD_SINGLE_HOLD) {
+        layer_off(_MOVEMENT);
+    }
+    ql_tap_state.state = TD_NONE;
+}
+
+// Associate our tap dance key with its functionality
+qk_tap_dance_action_t tap_dance_actions[] = {
+    [TD_ESC_CAPS] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, ql_finished, ql_reset)
+};
+
+// Set a long-ish tapping term for tap-dance keys
+uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case QK_TAP_DANCE ... QK_TAP_DANCE_MAX:
+            return 275;
+        default:
+            return TAPPING_TERM;
+    }
+}
+
